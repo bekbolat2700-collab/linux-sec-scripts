@@ -5,7 +5,14 @@
 # Purpose: Basic system hardening for DevOps/SecOps projects
 
 echo "Starting system hardening..."
-
+# Проверка и установка зависимостей
+echo "Checking dependencies..."
+for pkg in openssh-server ufw fail2ban; do
+    if ! dpkg -l | grep -q $pkg; then
+        echo "Installing $pkg..."
+        sudo apt install -y $pkg
+    fi
+done
 # 1. Update system
 sudo apt-get update && sudo apt-get upgrade -y
 
