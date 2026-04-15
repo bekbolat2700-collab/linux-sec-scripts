@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Simple Linux Security Hardening Script
-# Author: Bekbolat
-# Purpose: Basic system hardening for DevOps/SecOps projects
+# --- Конфигурация ---
+LOG_FILE="/var/log/system_hardening.log"
+
 
 echo "Starting system hardening..."
 # Проверка и установка зависимостей
@@ -16,24 +16,45 @@ done
 # 1. Update system
 sudo apt-get update && sudo apt-get upgrade -y
 
-# 2. Configure SSH (Disable Root Login)
-echo "Hardening SSH configuration..."
-sudo sed -i 's/PermitRootLogin yes/PermitRootLogin no/' /etc/ssh/sshd_config
-sudo systemctl restart ssh
+# Функция логирования
+log_message() {
+    local MESSAGE="$1"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $MESSAGE" | sudo tee -a "$LOG_FILE"
+}
 
-# 3. Setup UFW Firewall
-echo "Configuring Firewall..."
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
-sudo ufw allow ssh
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-echo "y" | sudo ufw enable
+# --- 1. Проверка прав ROOT ---
+if [[ $EUID -ne 0 ]]; then
+   echo "Ошибка: запустите скрипт через sudo!"
+   exit 1
+fi
+>>>>>>> c16c774 (feat: added enterprise logging, root check and fail2ban)
 
-# 4. Install and configure Fail2Ban
-echo "Installing Fail2Ban..."
-sudo apt-get install fail2ban -y
-sudo systemctl enable fail2ban
-sudo systemctl start fail2ban
+log_message " Начало настройки безопасности "
 
-echo "Hardening complete! System is now more secure."
+# --- 2. Обновление системы ---
+log_message "Обновление пакетов..."
+apt-get update -y && apt-get upgrade -y >> "$LOG_FILE" 2>&1
+
+# --- 3. Настройка Firewall (UFW) ---
+log_message "Настройка UFW..."
+apt-get install -y ufw >> "$LOG_FILE" 2>&1
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow ssh
+ufw --force enable
+log_message "UFW настроен и включен."
+
+# --- 4. Защита SSH ---
+log_message "Защита SSH (запрет root login)..."
+sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config
+systemctl restart ssh
+log_message "SSH защищен."
+
+# --- 5. Установка Fail2Ban ---
+log_message "Установка Fail2Ban..."
+apt-get install -y fail2ban >> "$LOG_FILE" 2>&1
+systemctl enable fail2ban
+systemctl start fail2ban
+log_message "Fail2Ban установлен."
+
+log_message " Hardening завершен успешно! "
